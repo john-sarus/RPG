@@ -303,3 +303,15 @@ ACTIVE_PRD: prd.json
 - Relevant code: RecruitmentSystem in utils/recruitment_system.py has is_character_recruitable(char_id) method. StoryEventSystem in utils/story_event_system.py has trigger methods. Story flags: 'recruitment_deadline_passed', 'met_orisia', 'flood_dead', 'yipp_alignment'. Character IDs are lowercase.
 - Dependencies: conftest.py provides headless_pygame fixture and sys.path setup. SaveSystem uses flat dict format where story flags are top-level keys, not nested under 'story_flags'.
 ---
+
+## [2026-02-11 18:30] - TEST-004 - SUCCESS
+- What was implemented: Created test_game_logic.py with 13 comprehensive pytest tests for critical game rules. Tests cover: recruitment_deadline_passed flag blocking recruitment, recruitment availability before deadline with prerequisites, flood_dead flag setting and persistence, Flood removal from party, Fritzzit/Crankpot paired recruitment mechanics, yipp_alignment flag (saint/vampire values), met_orisia flag, Yipp pre-Orisia requirement, already-recruited character checks, StoryEventSystem initialization, and recruitment window closing. All tests use RecruitmentSystem.is_character_recruitable(char_id) method and correct story flag names.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_game_logic.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\prd.json (marked TEST-004 as passing)
+- Tests: All 13 tests pass — test_recruitment_deadline_blocks ✓, test_recruitment_available_before_deadline ✓, test_recruitment_before_deadline_with_prereq ✓, test_flood_death_flag ✓, test_flood_removal_from_party ✓, test_fritzzit_crankpot_pairing ✓, test_fritzzit_crankpot_recruitment_mechanics ✓, test_yipp_alignment_flag ✓, test_recruitment_already_recruited ✓, test_met_orisia_flag ✓, test_yipp_requires_pre_orisia ✓, test_story_event_system_init ✓, test_recruitment_close_sets_deadline ✓
+
+### Context for Next Task
+- Next task ID: DOC-001 (Create desktop README with setup and controls documentation)
+- Key files to create: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\README.md (new file)
+- Relevant code: Read C:\Users\johnr\Documents\JasonMullan\RPG\README.md for project context. Document keyboard controls (arrow keys, WASD, Enter, Escape), mouse controls (left click = select, right click = back), CLI tools usage (battle_tester.py, stat_viewer.py, map_inspector.py, save_inspector.py), pytest command, shim architecture explanation
+- Dependencies: All test tasks complete. Ready for documentation tasks.
+---
