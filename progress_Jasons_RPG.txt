@@ -1,0 +1,210 @@
+ACTIVE_PRD: prd.json
+
+## Codebase Patterns
+- Utility systems (MenuSystem, DialogueSystem, ShopSystem, MapSystem) are pure state machines with NO draw() methods. They return dicts and modify GameState. Safe to test without pygame.
+- Scene files (scenes/title_screen.py, scenes/battle.py, scenes/victory.py, scenes/game_over.py) contain draw() methods that call fill(), rect(), text(), ellipse() from the scene module.
+- GameRoot in main.py is the Scene subclass. TitleScreen is NOT a Scene subclass — it's a plain class instantiated by GameRoot with draw/update/touch methods delegated from GameRoot.
+- Touch signature for sub-scenes: touch_began(self, touch, logical_x, logical_y) — GameRoot converts raw touch coords to logical coords before passing.
+- Shim scene.py exports: Point, Size, Rect, Scene, Touch, Action, GState, run, translate, scale, fill, rect, ellipse, text, line, background, get_screen_size, LANDSCAPE, PORTRAIT, and alignment constants.
+- GameState() constructor calls reset_new_game() which sets active_party=['javin'], items={'potion': 5}, gil=100, and 100+ story_flags.
+- conftest.py pattern for headless tests: set os.environ['SDL_VIDEODRIVER'] = 'dummy' before pygame import, then scene._surface = pygame.Surface((256, 224)).
+
+---
+
+## [2026-02-11 18:30] - SHIM-001 - SUCCESS
+- What was implemented: Created desktop directory structure (desktop/, desktop/shim/, desktop/tools/, desktop/tests/) with __init__.py files, requirements.txt (pygame-ce>=2.4.1, pytest>=7.0), and run.py entry point that manipulates sys.path to redirect 'from scene import *' to the shim layer. Added placeholder scene.py, sound.py, ui.py files.
+- Files changed: desktop/__init__.py, desktop/requirements.txt, desktop/run.py, desktop/shim/__init__.py, desktop/shim/scene.py, desktop/shim/sound.py, desktop/shim/ui.py
+- Tests: Path manipulation verified with test command
+
+### Context for Next Task
+- Next task ID: SHIM-002 (Implement geometry types and constants in scene shim)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py
+- Relevant code: Read main.py and scenes/title_screen.py and scenes/battle.py to identify all scene module APIs used (Point, Size, Rect, LANDSCAPE, PORTRAIT, Action class)
+- Dependencies: Directory structure now exists, ready for shim implementation
+---
+## [2026-02-11 19:15] - SHIM-002 - SUCCESS
+- What was implemented: Implemented Point, Size, and Rect geometry classes with full arithmetic operations and property accessors. Added LANDSCAPE/PORTRAIT constants and text alignment constants (1-9 grid). Created Action class with all static methods (move_to, fade_to, scale_to, sequence, group, wait, remove, call) as stubs. Added Scene base class, GState context manager, and stub drawing functions.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py
+- Tests: Verification passed - Point arithmetic and Rect.contains_point() work correctly
+
+### Context for Next Task
+- Next task ID: SHIM-003 (Implement Scene base class with Pygame game loop)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py (expand Scene class and run() function, add pygame integration)
+- Relevant code: Scene class skeleton already exists at line 248-287, needs full implementation with pygame event loop, surface management, and time tracking
+- Dependencies: Geometry types now complete, ready for pygame initialization and game loop
+---
+
+## [2026-02-11 19:45] - SHIM-003 - SUCCESS
+- What was implemented: Full Scene base class with pygame game loop, including setup/update/draw lifecycle, close() method, present_modal_scene/dismiss_modal_scene for scene stack. Implemented run() function with pygame initialization, 1024x896 window, 30 FPS frame rate control, time tracking (t/dt). Added GState context manager with transform stack (push/pop), translate() and scale() functions that modify stack. Created module-level _surface (256x224 logical) and _window (1024x896 display) variables, with scaled blitting each frame.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py
+- Tests: Scene creation verified, pygame imports work correctly
+
+### Context for Next Task
+- Next task ID: SHIM-004 (Implement drawing primitives)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py (implement background(), fill(), rect(), ellipse(), text(), line(), no_fill(), no_stroke(), stroke(), stroke_weight())
+- Relevant code: Need to catalog all drawing calls from main.py, scenes/battle.py, scenes/title_screen.py. Implement color conversion (0-1 floats to 0-255 ints), y-flip (bottom-left to top-left origin), DrawingState class to track current fill/stroke colors
+- Dependencies: Pygame initialized, Scene class complete, transform stack ready for coordinate transforms
+---
+## [2026-02-11 20:15] - SHIM-004 - SUCCESS
+- What was implemented: Complete drawing primitives implementation in desktop/shim/scene.py. Created DrawingState class to track fill/stroke colors and enabled states. Implemented color conversion helper (_color_float_to_int) converting 0-1 floats to 0-255 ints. Implemented y-flip helper (_flip_y) for bottom-left to top-left coordinate conversion accounting for transform stack. Drawing functions: background(), fill(), rect(), ellipse(), text() with alignment support (1-9 grid), line(), no_fill(), no_stroke(), stroke(), stroke_weight(). Font caching to avoid recreating fonts every frame. Alpha transparency support via temporary surfaces. Transform stack integration for translate/scale.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py, C:\Users\johnr\Documents\JasonMullan\RPG\desktop\test_drawing.py (temporary test script)
+- Tests: Verified color conversion (1.0,0.5,0.0 → 255,127,0,255), y-flip calculations (y=0→224, y=224→0, rect y=10 h=30→184), DrawingState initialization
+
+### Context for Next Task
+- Next task ID: SHIM-005 (Implement mouse Touch input and coordinate conversion)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py (add Touch class and mouse event handling in run() loop)
+- Relevant code: The run() function at line 395-467 needs mouse event handling. Touch class needs location (Point), prev_location (Point), touch_id (int) properties. Coordinate conversion: touch.location.x = mouse_x * (scene.size.w / window_width), touch.location.y = (window_height - mouse_y) * (scene.size.h / window_height)
+- Dependencies: Drawing primitives complete, scene loop ready, coordinate conversion helpers already implemented
+---
+## [2026-02-11 21:00] - SHIM-005 - SUCCESS
+- What was implemented: Complete Touch input system with mouse event handling. Created Touch class with location, prev_location, and touch_id properties. Implemented mouse event handlers in run() loop for MOUSEBUTTONDOWN, MOUSEMOTION, and MOUSEBUTTONUP events. Added coordinate conversion from window space (1024x896, top-left origin) to scene space (256x224, bottom-left origin). Touch state tracking for continuous mouse drag operations.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py
+- Tests: Coordinate conversion verified - window (0,0) maps to scene (0,224), window (1024,896) maps to scene (256,0), center (512,448) maps to scene (128,112)
+
+### Context for Next Task
+- Next task ID: SHIM-006 (Implement keyboard navigation system)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py (add keyboard event handling, selectable regions system, key state tracking)
+- Relevant code: run() loop at line 746-806 now includes mouse event handling, need to add KEYDOWN/KEYUP handlers. Scene class at line 283-338 needs keys_pressed dict, key_down/key_up callbacks, register_selectable method
+- Dependencies: Touch input complete, ready for keyboard overlay and synthetic touch generation from Enter key
+---
+
+## [2026-02-11 22:00] - SHIM-006 - SUCCESS
+- What was implemented: Complete keyboard navigation system with selectable regions. Added KEYDOWN/KEYUP event handling in run() loop. Created _keys_pressed set to track currently held keys. Added keys_pressed() method returning copy of held keys for continuous movement checks. Added key_down() and key_up() callback methods to Scene. Implemented selectable regions system: register_selectable(name, rect) to register clickable areas, _cycle_selection() to navigate with arrow keys/WASD, _trigger_selected() to synthesize touch events at selected region center when Enter/Space pressed. Added _get_key_name() helper mapping pygame key constants to readable names (arrow keys, WASD, Enter, Space, Escape, M, number keys 0-9). Created comprehensive verification tests for all functionality.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py, C:\Users\johnr\Documents\JasonMullan\RPG\desktop\test_keyboard.py (interactive test), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\verify_keyboard.py (unit tests), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\verify_key_mapping.py (pygame key mapping tests)
+- Tests: All verification tests pass - keys tracking ✓, selectable regions ✓, arrow key cycling ✓, Enter key synthetic touch ✓, key callbacks ✓, pygame key mapping ✓
+
+### Context for Next Task
+- Next task ID: SHIM-007 (Implement sound.py stub module)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\sound.py (create new file)
+- Relevant code: Search all .py files in the project for 'import sound' and 'sound.' to find all sound API usage. Implement play_effect(name, volume, pitch), Player class, set_volume() as no-ops with optional console prints
+- Dependencies: Keyboard navigation complete, sound stubs are independent and low-risk
+---
+
+## [2026-02-11 22:30] - SHIM-007 - SUCCESS
+- What was implemented: Complete sound.py stub module with play_effect(), set_volume(), and Player class. All methods are no-ops with optional DEBUG_SOUND flag for console printing. Module includes __all__ export list and comprehensive docstrings.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\sound.py
+- Tests: Verification passed - sound module imports correctly, play_effect() works, Player class instantiates and all methods callable
+
+### Context for Next Task
+- Next task ID: SHIM-008 (Implement ui.py stub module)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\ui.py
+- Relevant code: Search all .py files for 'import ui' and 'ui.' to find all UI API usage. Implement View, Label, Button classes, load_view(), in_background decorator, get_screen_size()
+- Dependencies: Sound stubs complete, ui stubs are the final shim layer component before integration testing
+---
+
+## [2026-02-11 23:00] - SHIM-008 - SUCCESS
+- What was implemented: Complete ui.py stub module with View, Label, Button, TableView, ListDataSource classes, load_view(), in_background decorator, and get_screen_size(). All classes have proper property accessors (frame, background_color, text, font, text_color, title, action, data_source, delegate). View class includes context manager support (__enter__/__exit__), subview management (add_subview/remove_from_superview), and present/close methods. DEBUG_UI flag for optional console logging. Comprehensive docstrings included.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\ui.py
+- Tests: Verification passed - ui module imports correctly, View instantiates without error
+
+### Context for Next Task
+- Next task ID: SHIM-009 (Wire up desktop entry point to launch the game)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\run.py
+- Relevant code: Need to update run.py to import GameRoot from main.py and call the scene.run() function. This is the integration test - expect missing APIs to surface when the game actually runs.
+- Dependencies: All three shim modules (scene.py, sound.py, ui.py) are now complete and ready for integration testing
+---
+
+## [2026-02-11 23:30] - SHIM-009 - SUCCESS
+- What was implemented: Wired up desktop/run.py to import GameRoot from main.py and launch it using the scene.run() function from the shim layer. Added comprehensive error handling with try/except blocks for import failures and runtime errors. The game now successfully opens a Pygame window without crashing.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\run.py
+- Tests: Verified that python desktop/run.py successfully opens a Pygame window and launches the game without ImportError or AttributeError
+
+### Context for Next Task
+- Next task ID: INT-001 (Get TitleScreen rendering correctly on desktop)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\shim\scene.py (likely need to fix rendering issues), possibly C:\Users\johnr\Documents\JasonMullan\RPG\scenes\title_screen.py (to debug what's being rendered)
+- Relevant code: The game launches successfully and enters the main loop. Next step is to debug the title screen rendering - check if colors, text, rectangles appear correctly, verify y-flip coordinate conversion, and test touch/mouse input on menu items
+- Dependencies: All shim modules (scene.py, sound.py, ui.py) are complete and the game launches. Ready for visual debugging and rendering fixes
+---
+
+## [2026-02-11 23:45] - INT-001 - SUCCESS
+- What was implemented: Verified title screen rendering completely functional on desktop. Title displays centered in white, subtitle in gray, all 5 menu options visible with blue highlight on selected item. Mouse coordinate conversion working correctly - clicks at window coordinates properly map to logical coordinates (256x224 range). Touch handling correctly detects button clicks and calls appropriate GameRoot methods (new_game, load_game_from_file, quit_game). Created comprehensive verification suite with test scripts.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\test_screenshot.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\test_title_interaction.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\verify_title_screen.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\screenshot_title.png (captured)
+- Tests: All rendering verified ✓ (colors, positions, text alignment), all touch handling verified ✓ (coordinate conversion, button detection, callbacks), screenshot captured showing correct rendering ✓
+
+### Context for Next Task
+- Next task ID: INT-002 (Create headless rendering test harness for shim verification)
+- PRD was hardened: ALL 16 remaining tasks (INT-002 through DOC-002) are fully headless-compatible. No task requires a Pygame window, visual inspection, or interactive input.
+- MUST create 3 files: (1) desktop/tests/__init__.py (empty, for pytest discovery), (2) desktop/tests/conftest.py (shared fixtures), (3) desktop/tests/test_shim_rendering.py
+- conftest.py pattern (CONFIRMED WORKING on this Windows machine):
+  ```python
+  import os
+  os.environ['SDL_VIDEODRIVER'] = 'dummy'  # MUST be before pygame import
+  import sys, pygame
+  sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shim'))
+  sys.path.insert(1, os.path.join(os.path.dirname(__file__), '..', '..'))
+  import scene
+
+  @pytest.fixture
+  def headless_pygame():
+      pygame.init()
+      scene._surface = pygame.Surface((256, 224))
+      yield scene._surface
+      pygame.quit()
+  ```
+- Pixel assertions work: surface.get_at((x, y)) returns pygame.Color comparable to tuple (r, g, b, a)
+- Key drawing functions in scene.py: background(r, g, b), fill(r, g, b, a=1.0), rect(x, y, w, h), text(str, font, size, x, y, alignment=5)
+- y-flip: Pythonista y=10 with h=30 maps to pygame y = 224-10-30 = 184
+- All subsequent test files (INT-003 through TEST-004) reuse this conftest.py. Do NOT recreate it.
+- Key data for later tasks: enemy IDs are snake_case ('infected_kobold_weak'), char IDs are lowercase ('javin'), stat keys are full words ('attack' not 'STR'), story flags include 'met_orisia' and 'flood_dead', VictoryScreen/GameOverScreen (not Scene)
+---
+
+## [2026-02-11 23:50] - INT-002 - SUCCESS
+- What was implemented: Created headless pytest infrastructure with conftest.py fixture and test_shim_rendering.py. Verified drawing primitives (background, fill, rect, text) work correctly in headless mode. Tests include pixel-level assertions for color conversion (float to int), y-coordinate flipping (bottom-left to top-left origin), and DrawingState initialization.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\__init__.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\conftest.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_shim_rendering.py (new)
+- Tests: All 6 tests pass — background fills, rect drawing with y-flip, color conversion, text rendering, y-flip calculation, DrawingState defaults verified
+
+### Context for Next Task
+- Next task ID: INT-003 (Verify TitleScreen draws without crashing via headless test)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_title_screen_headless.py (create new)
+- Relevant code: Read C:\Users\johnr\Documents\JasonMullan\RPG\scenes\title_screen.py to understand TitleScreen.__init__(game_root) and draw() method. Build MockGameRoot with attributes: game_state_data, new_game_called, load_called, quit_called, and methods new_game(), load_game_from_file(filename), quit_game()
+- Dependencies: conftest.py now provides headless_pygame fixture for all subsequent tests. Do NOT recreate conftest.py.
+---
+
+
+## [2026-02-11 12:20] - INT-003 - SUCCESS
+- What was implemented: Created test_title_screen_headless.py with 5 pytest tests verifying TitleScreen can be instantiated and drawn in headless mode. Built MockGameRoot class with new_game(), load_game_from_file(), and quit_game() methods. Fixed conftest.py pygame segfault issue by making headless_pygame fixture session-scoped and removing pygame.quit() call (which causes crashes in dummy mode between tests). All tests pass: draw without crash, draw with different selected_index values, menu_options list exists, touch_began doesn't crash, menu selection callbacks work correctly.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_title_screen_headless.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\conftest.py (fixed)
+- Tests: All 5 tests pass — test_draw_no_crash ✓, test_draw_with_selection ✓, test_menu_options_exist ✓, test_touch_began_no_crash ✓, test_menu_selection_callbacks ✓
+
+### Context for Next Task
+- Next task ID: INT-004 (Verify BattleScene instantiation and draw cycle headlessly)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_battle_headless.py (create new)
+- Relevant code: BattleScene in scenes/battle.py, enemy IDs from data/enemies.py (use 'infected_kobold_weak' not 'goblin'). BattleEngine constructor takes game_state directly. Character IDs are lowercase ('javin', 'fei', 'iris'). Build MockGameRoot with attributes BattleScene.__init__() needs.
+- Dependencies: conftest.py now fixed for session-scoped pygame initialization, ready for all remaining test files
+---
+
+## [2026-02-11 12:25] - INT-004 - SUCCESS
+- What was implemented: Created test_battle_headless.py with 5 pytest tests verifying BattleScene can be instantiated and drawn headlessly. Built MockGameRoot class with battle callback methods (handle_battle_victory, handle_battle_flee, handle_battle_defeat). All tests pass: battle init with single enemy ✓, draw without crash ✓, multi-enemy battle ✓, update cycle ✓, can_flee parameter respected ✓.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_battle_headless.py (new)
+- Tests: All 5 tests pass — test_battle_init ✓, test_battle_draw_no_crash ✓, test_battle_multi_enemy ✓, test_battle_update_no_crash ✓, test_battle_can_flee_setting ✓
+
+### Context for Next Task
+- Next task ID: INT-005 (Verify MenuSystem, DialogueSystem, ShopSystem logic headlessly)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_game_systems_headless.py (create new)
+- Relevant code: MenuSystem in utils/menu_system.py, DialogueSystem in utils/dialogue_system.py, ShopSystem in utils/shop_system.py. These are pure state machines with no draw code. Known dialogue IDs: 'recruit_frostbite', 'recruit_fei'. Known shop IDs: 'imperial_item_shop', 'starter_item_shop'. GameState starts with gil=100, items={'potion': 5}.
+- Dependencies: conftest.py provides sys.path setup for all subsequent tests. Do NOT recreate conftest.py.
+---
+
+## [2026-02-11 13:00] - INT-005 - SUCCESS
+- What was implemented: Created test_game_systems_headless.py with 7 pytest tests verifying MenuSystem, DialogueSystem, and ShopSystem logic. Also fixed two bugs in existing codebase: (1) Added missing EQUIPMENT dict to data/equipment.py by combining WEAPONS, ARMOR, SHIELDS, ACCESSORIES, SPECIAL_ITEMS dicts. (2) Fixed shop_system.py to use 'shop_cost' key instead of 'price' key when reading item/equipment prices (game data uses shop_cost, not price).
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_game_systems_headless.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\data\equipment.py (added EQUIPMENT dict), C:\Users\johnr\Documents\JasonMullan\RPG\utils\shop_system.py (fixed price key references)
+- Tests: All 7 tests pass — test_menu_open_close ✓, test_menu_inventory ✓, test_dialogue_start ✓, test_dialogue_advance ✓, test_shop_open_and_buy ✓, test_shop_insufficient_funds ✓, test_menu_stack ✓
+
+### Context for Next Task
+- Next task ID: INT-006 (Verify MapSystem movement, collision, and NPC interaction headlessly)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_map_headless.py (create new)
+- Relevant code: MapSystem in utils/map_system.py, NPCSystem in same file, DungeonSystem in same file. MapSystem.__init__(game_state) sets player_position=[128, 112] as list. Starting location is 'tutorial_warren'. Key methods: move_player(dx, dy), is_position_walkable(x, y), enter_location(location_id), check_npc_interaction().
+- Dependencies: conftest.py provides sys.path setup for all tests. Do NOT recreate conftest.py.
+---
+
+## [2026-02-11 14:00] - INT-006 - SUCCESS
+- What was implemented: Created test_map_headless.py with 14 pytest tests verifying MapSystem and NPCSystem logic. Tests cover: player initialization at [128, 112], movement in 4 directions with move_speed applied, boundary collision detection (0-256 x, 0-224 y), walkability checks, location entry with and without required flags, location locking/unlocking, NPCSystem instantiation, location name retrieval, save/load position round-trip, distance calculation, and area containment checks.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_map_headless.py (new)
+- Tests: All 14 tests pass — test_player_init_position ✓, test_move_player_right ✓, test_move_player_up ✓, test_move_player_boundary ✓, test_walkable_center ✓, test_not_walkable_out_of_bounds ✓, test_enter_location ✓, test_enter_locked_location ✓, test_enter_unlocked_location ✓, test_npc_system_init ✓, test_get_current_location_name ✓, test_save_and_load_position ✓, test_calculate_distance ✓, test_is_in_area ✓
+
+### Context for Next Task
+- Next task ID: INT-007 (Verify full game initialization chain and scene transitions headlessly)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_game_loop_headless.py (create new)
+- Relevant code: Read C:\Users\johnr\Documents\JasonMullan\RPG\main.py to understand GameRoot.__init__(), setup(), new_game(), draw(), draw_exploration(). CRITICAL: VictoryScreen (from scenes.victory), GameOverScreen (from scenes.game_over). NOT VictoryScene/GameOverScene.
+- Dependencies: conftest.py provides headless_pygame fixture for all tests. Do NOT recreate conftest.py.
+---
