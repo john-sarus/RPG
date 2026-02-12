@@ -57,7 +57,7 @@ class ShopSystem:
                     inventory.append({
                         'id': item_id,
                         'name': item_data['name'],
-                        'price': item_data['price'],
+                        'price': item_data.get('shop_cost', item_data.get('price', 0)),
                         'type': 'item',
                         'description': item_data['description']
                     })
@@ -70,7 +70,7 @@ class ShopSystem:
                     inventory.append({
                         'id': equip_id,
                         'name': equip_data['name'],
-                        'price': equip_data['price'],
+                        'price': equip_data.get('shop_cost', equip_data.get('price', 0)),
                         'type': 'equipment',
                         'equipment_type': equip_data['type'],
                         'description': equip_data.get('description', ''),
@@ -103,7 +103,7 @@ class ShopSystem:
                     inventory.append({
                         'id': item_id,
                         'name': item_data['name'],
-                        'price': item_data['price'],
+                        'price': item_data.get('shop_cost', item_data.get('price', 0)),
                         'type': 'item'
                     })
 
@@ -114,7 +114,7 @@ class ShopSystem:
                     inventory.append({
                         'id': equip_id,
                         'name': equip_data['name'],
-                        'price': equip_data['price'],
+                        'price': equip_data.get('shop_cost', equip_data.get('price', 0)),
                         'type': 'equipment'
                     })
 

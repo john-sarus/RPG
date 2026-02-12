@@ -584,3 +584,12 @@ def can_character_equip(character_id, equipment_id, equipment_type, character_cl
             return False
 
     return True
+
+
+# Combined EQUIPMENT dictionary for shop system
+EQUIPMENT = {}
+EQUIPMENT.update(WEAPONS)
+EQUIPMENT.update(ARMOR)
+EQUIPMENT.update(SHIELDS)
+EQUIPMENT.update(ACCESSORIES)
+EQUIPMENT.update(SPECIAL_ITEMS)
