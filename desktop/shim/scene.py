@@ -320,7 +320,117 @@ class Scene:
 
 
 # ============================================================================
-# Stub Functions (to be implemented in later tasks)
+# Drawing State
+# ============================================================================
+
+class DrawingState:
+    """Tracks current drawing state (fill color, stroke color, etc.)"""
+
+    def __init__(self):
+        self.fill_color = (255, 255, 255, 255)  # RGBA as 0-255 ints
+        self.stroke_color = (0, 0, 0, 255)
+        self.stroke_weight_val = 1
+        self.fill_enabled = True
+        self.stroke_enabled = True
+
+# Module-level drawing state
+_drawing_state = DrawingState()
+
+# Font cache to avoid recreating fonts every frame
+_font_cache = {}
+
+
+# ============================================================================
+# Coordinate and Color Conversion Helpers
+# ============================================================================
+
+def _color_float_to_int(r, g, b, a=1.0):
+    """
+    Convert Pythonista 0-1 float colors to Pygame 0-255 int colors
+
+    Args:
+        r, g, b, a: Float values 0.0-1.0
+
+    Returns:
+        Tuple of (r, g, b, a) as 0-255 integers
+    """
+    return (
+        int(r * 255),
+        int(g * 255),
+        int(b * 255),
+        int(a * 255)
+    )
+
+
+def _flip_y(y, h=0):
+    """
+    Flip y-coordinate from Pythonista (bottom-left origin) to Pygame (top-left origin)
+
+    Args:
+        y: Y coordinate in Pythonista space (0 = bottom)
+        h: Height of object (for rectangles/ellipses)
+
+    Returns:
+        Y coordinate in Pygame space (0 = top)
+    """
+    global _transform_stack
+
+    # Get current transform
+    tx, ty, sx, sy = _transform_stack[-1] if _transform_stack else (0, 0, 1, 1)
+
+    # Apply transform to input coordinates
+    y_transformed = y + ty
+
+    # Flip: pygame_y = surface_height - pythonista_y - object_height
+    # Logical surface is 256x224
+    return 224 - y_transformed - h
+
+
+def _apply_transform(x, y):
+    """
+    Apply current transform stack to coordinates
+
+    Args:
+        x, y: Input coordinates
+
+    Returns:
+        Transformed (x, y) tuple
+    """
+    global _transform_stack
+
+    if not _transform_stack:
+        return (x, y)
+
+    tx, ty, sx, sy = _transform_stack[-1]
+    return (x * sx + tx, y * sy + ty)
+
+
+def _get_font(font_name, font_size):
+    """
+    Get a pygame font, using cache to avoid recreation
+
+    Args:
+        font_name: Font name (ignored, uses system default)
+        font_size: Font size in points
+
+    Returns:
+        pygame.font.Font instance
+    """
+    global _font_cache
+
+    cache_key = (font_name, font_size)
+    if cache_key not in _font_cache:
+        # Try to use system font, fall back to default
+        try:
+            _font_cache[cache_key] = pygame.font.SysFont(font_name, font_size)
+        except:
+            _font_cache[cache_key] = pygame.font.Font(None, font_size)
+
+    return _font_cache[cache_key]
+
+
+# ============================================================================
+# Drawing Functions
 # ============================================================================
 
 def get_screen_size():
@@ -373,23 +483,210 @@ def scale(sx, sy=None):
 
 
 def background(r, g, b):
-    """Fill background (stub)"""
-    pass
+    """
+    Fill background with solid color
+
+    Args:
+        r, g, b: Float color values 0.0-1.0
+    """
+    global _surface
+    if _surface is None:
+        return
+
+    color = _color_float_to_int(r, g, b, 1.0)
+    _surface.fill(color[:3])  # Fill takes RGB only
 
 
 def fill(r, g, b, a=1.0):
-    """Set fill color (stub)"""
-    pass
+    """
+    Set current fill color for subsequent drawing operations
+
+    Args:
+        r, g, b: Float color values 0.0-1.0
+        a: Alpha (opacity) 0.0-1.0
+    """
+    global _drawing_state
+    _drawing_state.fill_color = _color_float_to_int(r, g, b, a)
+    _drawing_state.fill_enabled = True
 
 
 def rect(x, y, w, h):
-    """Draw rectangle (stub)"""
-    pass
+    """
+    Draw a filled rectangle using current fill color
+
+    Args:
+        x, y: Bottom-left corner in Pythonista coordinates
+        w, h: Width and height
+    """
+    global _surface, _drawing_state
+    if _surface is None or not _drawing_state.fill_enabled:
+        return
+
+    # Apply transform and y-flip
+    x_transformed, y_transformed = _apply_transform(x, y)
+    pygame_y = _flip_y(y_transformed, h)
+
+    # Draw rectangle
+    color = _drawing_state.fill_color
+    if len(color) == 4 and color[3] < 255:
+        # Handle alpha transparency
+        temp_surface = pygame.Surface((int(w), int(h)), pygame.SRCALPHA)
+        temp_surface.fill(color)
+        _surface.blit(temp_surface, (int(x_transformed), int(pygame_y)))
+    else:
+        # Opaque rectangle
+        pygame.draw.rect(_surface, color[:3], (int(x_transformed), int(pygame_y), int(w), int(h)))
+
+
+def ellipse(x, y, w, h):
+    """
+    Draw a filled ellipse using current fill color
+
+    Args:
+        x, y: Bottom-left corner of bounding box in Pythonista coordinates
+        w, h: Width and height of bounding box
+    """
+    global _surface, _drawing_state
+    if _surface is None or not _drawing_state.fill_enabled:
+        return
+
+    # Apply transform and y-flip
+    x_transformed, y_transformed = _apply_transform(x, y)
+    pygame_y = _flip_y(y_transformed, h)
+
+    # Calculate center and radii
+    center_x = int(x_transformed + w / 2)
+    center_y = int(pygame_y + h / 2)
+    radius_x = int(w / 2)
+    radius_y = int(h / 2)
+
+    # Draw ellipse
+    color = _drawing_state.fill_color
+    if radius_x > 0 and radius_y > 0:
+        rect_bounds = (int(x_transformed), int(pygame_y), int(w), int(h))
+        if len(color) == 4 and color[3] < 255:
+            # Handle alpha transparency
+            temp_surface = pygame.Surface((int(w), int(h)), pygame.SRCALPHA)
+            pygame.draw.ellipse(temp_surface, color, (0, 0, int(w), int(h)))
+            _surface.blit(temp_surface, (int(x_transformed), int(pygame_y)))
+        else:
+            # Opaque ellipse
+            pygame.draw.ellipse(_surface, color[:3], rect_bounds)
 
 
 def text(string, font_name='Helvetica', font_size=16, x=0, y=0, alignment=5):
-    """Draw text (stub)"""
-    pass
+    """
+    Draw text at the specified position
+
+    Args:
+        string: Text to draw
+        font_name: Font name (mapped to system font or default)
+        font_size: Font size in points
+        x, y: Position in Pythonista coordinates
+        alignment: 1-9 grid alignment (5=center, 4=left, 6=right, 8=top, 2=bottom)
+    """
+    global _surface, _drawing_state
+    if _surface is None or not _drawing_state.fill_enabled:
+        return
+
+    # Get font
+    font = _get_font(font_name, font_size)
+
+    # Render text
+    color = _drawing_state.fill_color[:3]  # RGB only for text rendering
+    text_surface = font.render(str(string), True, color)
+    text_rect = text_surface.get_rect()
+
+    # Apply transform
+    x_transformed, y_transformed = _apply_transform(x, y)
+
+    # Handle alignment
+    # Alignment grid: 7 8 9
+    #                 4 5 6
+    #                 1 2 3
+    # 5 = center, 4 = left, 6 = right, 8 = top center, 2 = bottom center
+    if alignment in [4, 5, 6]:  # Middle row (vertical center)
+        text_rect.centery = int(_flip_y(y_transformed, 0))
+    elif alignment in [7, 8, 9]:  # Top row
+        text_rect.top = int(_flip_y(y_transformed, 0))
+    else:  # Bottom row [1, 2, 3]
+        text_rect.bottom = int(_flip_y(y_transformed, 0))
+
+    if alignment in [4, 7, 1]:  # Left column
+        text_rect.left = int(x_transformed)
+    elif alignment in [5, 8, 2]:  # Center column
+        text_rect.centerx = int(x_transformed)
+    else:  # Right column [6, 9, 3]
+        text_rect.right = int(x_transformed)
+
+    # Draw text
+    if len(_drawing_state.fill_color) == 4 and _drawing_state.fill_color[3] < 255:
+        # Handle alpha transparency
+        text_surface.set_alpha(_drawing_state.fill_color[3])
+    _surface.blit(text_surface, text_rect)
+
+
+def line(x1, y1, x2, y2):
+    """
+    Draw a line using current stroke color and weight
+
+    Args:
+        x1, y1: Start point in Pythonista coordinates
+        x2, y2: End point in Pythonista coordinates
+    """
+    global _surface, _drawing_state
+    if _surface is None or not _drawing_state.stroke_enabled:
+        return
+
+    # Apply transform and y-flip
+    x1_transformed, y1_transformed = _apply_transform(x1, y1)
+    x2_transformed, y2_transformed = _apply_transform(x2, y2)
+    pygame_y1 = _flip_y(y1_transformed, 0)
+    pygame_y2 = _flip_y(y2_transformed, 0)
+
+    # Draw line
+    color = _drawing_state.stroke_color[:3]  # RGB only
+    width = max(1, int(_drawing_state.stroke_weight_val))
+    pygame.draw.line(_surface, color,
+                    (int(x1_transformed), int(pygame_y1)),
+                    (int(x2_transformed), int(pygame_y2)),
+                    width)
+
+
+def no_fill():
+    """Disable fill for subsequent drawing operations"""
+    global _drawing_state
+    _drawing_state.fill_enabled = False
+
+
+def no_stroke():
+    """Disable stroke for subsequent drawing operations"""
+    global _drawing_state
+    _drawing_state.stroke_enabled = False
+
+
+def stroke(r, g, b, a=1.0):
+    """
+    Set current stroke color for line drawing
+
+    Args:
+        r, g, b: Float color values 0.0-1.0
+        a: Alpha (opacity) 0.0-1.0
+    """
+    global _drawing_state
+    _drawing_state.stroke_color = _color_float_to_int(r, g, b, a)
+    _drawing_state.stroke_enabled = True
+
+
+def stroke_weight(w):
+    """
+    Set stroke width for line drawing
+
+    Args:
+        w: Line width in pixels
+    """
+    global _drawing_state
+    _drawing_state.stroke_weight_val = w
 
 
 def run(scene, orientation=LANDSCAPE, frame_interval=2):
