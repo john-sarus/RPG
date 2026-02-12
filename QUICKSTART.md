@@ -4,12 +4,24 @@ A dark fantasy JRPG for desktop, inspired by Final Fantasy 4-6.
 
 ---
 
+## Get the Code
+
+Clone the repository from GitHub:
+
+```bash
+git clone https://github.com/JT-Savage/RPG.git
+cd RPG
+```
+
+The default branch is `claude/jrpg-mobile-game-KtwFT`. That branch contains the latest stable code.
+
+---
+
 ## Launch the Game
 
 You need Python 3.8+ and pip.
 
 ```bash
-cd C:\Users\johnr\Documents\JasonMullan\RPG
 pip install -r desktop/requirements.txt
 python desktop/run.py
 ```
