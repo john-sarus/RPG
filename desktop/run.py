@@ -27,6 +27,47 @@ def main():
     print(f"Shim directory: {shim_dir}")
     print(f"sys.path[0]: {sys.path[0]}")
     print(f"sys.path[1]: {sys.path[1]}")
+    print()
+
+    # Import the game
+    try:
+        print("Importing scene module (shim)...")
+        from scene import run, LANDSCAPE
+        print("✓ Scene module imported")
+    except ImportError as e:
+        print(f"✗ Failed to import scene module: {e}")
+        return 1
+    except AttributeError as e:
+        print(f"✗ Scene module missing required attribute: {e}")
+        return 1
+
+    try:
+        print("Importing GameRoot from main.py...")
+        from main import GameRoot
+        print("✓ GameRoot imported")
+    except ImportError as e:
+        print(f"✗ Failed to import GameRoot: {e}")
+        print("This likely means a game module couldn't import required dependencies.")
+        return 1
+    except AttributeError as e:
+        print(f"✗ main.py missing GameRoot class: {e}")
+        return 1
+
+    # Launch the game
+    print()
+    print("Launching 'There Will Be Kobolds' on desktop...")
+    print("Window size: 1024x896 (4x scale of 256x224 logical resolution)")
+    print()
+
+    try:
+        run(GameRoot(), orientation=LANDSCAPE, frame_interval=2)
+    except Exception as e:
+        print(f"✗ Game crashed: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
