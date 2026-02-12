@@ -3,6 +3,23 @@ Pygame shim for Pythonista scene module
 Provides geometry types, constants, and Scene base class
 """
 
+import pygame
+
+# ============================================================================
+# Module-level state for rendering
+# ============================================================================
+
+# Two-surface rendering system:
+# - _surface: logical 256x224 surface where all game drawing happens
+# - _window: actual display surface (1024x896) that _surface is scaled to
+_surface = None
+_window = None
+_clock = None
+
+# Transform stack for GState context manager
+# Each entry is (translate_x, translate_y, scale_x, scale_y)
+_transform_stack = [(0.0, 0.0, 1.0, 1.0)]
+
 # ============================================================================
 # Geometry Types
 # ============================================================================
@@ -247,15 +264,17 @@ class Action:
 
 class Scene:
     """
-    Base scene class (placeholder for now)
-    Will be fully implemented in SHIM-003
+    Base scene class - manages game loop lifecycle
+    Subclasses override setup(), update(), draw(), and touch handlers
     """
 
     def __init__(self):
-        self.size = Size(256, 224)
-        self.t = 0.0  # elapsed time
-        self.dt = 0.0  # delta time
-        self.children = []
+        self.size = Size(256, 224)  # Logical resolution
+        self.t = 0.0  # Elapsed time in seconds
+        self.dt = 0.0  # Delta time (time since last frame)
+        self.children = []  # Child nodes (not used in this game, but part of API)
+        self._quit_flag = False  # Set to True to exit the game loop
+        self._modal_scene = None  # Scene stack for modal presentation
 
     def setup(self):
         """Called when scene is first presented"""
@@ -285,34 +304,72 @@ class Scene:
         """Called when scene size changes"""
         pass
 
+    def close(self):
+        """Close the scene and exit the game loop"""
+        self._quit_flag = True
+
+    def present_modal_scene(self, scene):
+        """Present a scene modally (on top of current scene)"""
+        self._modal_scene = scene
+        scene.size = self.size
+        scene.setup()
+
+    def dismiss_modal_scene(self):
+        """Dismiss the current modal scene"""
+        self._modal_scene = None
+
 
 # ============================================================================
 # Stub Functions (to be implemented in later tasks)
 # ============================================================================
 
 def get_screen_size():
-    """Get screen size (stub)"""
+    """Get screen size - returns logical resolution"""
     return Size(256, 224)
 
 
 class GState:
-    """Context manager for graphics state (stub)"""
+    """
+    Context manager for graphics state (transform stack)
+    Pushes current transform on entry, pops on exit
+    """
 
     def __enter__(self):
+        """Push current transform state onto stack"""
+        global _transform_stack
+        # Copy the top of stack
+        current = _transform_stack[-1]
+        _transform_stack.append(current)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
+        """Pop transform state from stack"""
+        global _transform_stack
+        if len(_transform_stack) > 1:
+            _transform_stack.pop()
+        return False
 
 
 def translate(x, y):
-    """Translate coordinate system (stub)"""
-    pass
+    """Translate coordinate system - adds to current transform"""
+    global _transform_stack
+    if not _transform_stack:
+        _transform_stack.append((x, y, 1.0, 1.0))
+    else:
+        tx, ty, sx, sy = _transform_stack[-1]
+        _transform_stack[-1] = (tx + x, ty + y, sx, sy)
 
 
 def scale(sx, sy=None):
-    """Scale coordinate system (stub)"""
-    pass
+    """Scale coordinate system - multiplies current scale"""
+    global _transform_stack
+    if sy is None:
+        sy = sx
+    if not _transform_stack:
+        _transform_stack.append((0.0, 0.0, sx, sy))
+    else:
+        tx, ty, old_sx, old_sy = _transform_stack[-1]
+        _transform_stack[-1] = (tx, ty, old_sx * sx, old_sy * sy)
 
 
 def background(r, g, b):
@@ -336,5 +393,74 @@ def text(string, font_name='Helvetica', font_size=16, x=0, y=0, alignment=5):
 
 
 def run(scene, orientation=LANDSCAPE, frame_interval=2):
-    """Run the game (stub)"""
-    pass
+    """
+    Run the game with Pygame
+
+    Args:
+        scene: Scene instance to run
+        orientation: LANDSCAPE or PORTRAIT (only LANDSCAPE supported)
+        frame_interval: Frame interval (2 = 30fps, 1 = 60fps)
+    """
+    global _surface, _window, _clock
+
+    # Initialize Pygame
+    pygame.init()
+
+    # Logical resolution (SNES-era pixel-perfect)
+    LOGICAL_WIDTH = 256
+    LOGICAL_HEIGHT = 224
+
+    # Window size (4x scale)
+    WINDOW_WIDTH = 1024
+    WINDOW_HEIGHT = 896
+
+    # Create window and surfaces
+    _window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+    pygame.display.set_caption("There Will Be Kobolds")
+
+    # Create logical surface for game rendering
+    _surface = pygame.Surface((LOGICAL_WIDTH, LOGICAL_HEIGHT))
+
+    # Create clock for frame rate control
+    _clock = pygame.time.Clock()
+
+    # Set scene size and initialize
+    scene.size = Size(LOGICAL_WIDTH, LOGICAL_HEIGHT)
+    scene.setup()
+
+    # Main game loop
+    running = True
+    start_time = pygame.time.get_ticks()
+    last_time = start_time
+
+    while running and not scene._quit_flag:
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Update time
+        current_time = pygame.time.get_ticks()
+        scene.t = (current_time - start_time) / 1000.0  # Convert to seconds
+        scene.dt = (current_time - last_time) / 1000.0
+        last_time = current_time
+
+        # Update scene
+        scene.update()
+
+        # Draw scene to logical surface
+        scene.draw()
+
+        # Scale logical surface to window
+        scaled_surface = pygame.transform.scale(_surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
+        _window.blit(scaled_surface, (0, 0))
+
+        # Flip display
+        pygame.display.flip()
+
+        # Control frame rate (30 FPS for frame_interval=2)
+        target_fps = 60 // frame_interval
+        _clock.tick(target_fps)
+
+    # Cleanup
+    pygame.quit()
