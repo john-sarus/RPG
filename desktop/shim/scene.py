@@ -294,6 +294,9 @@ class Scene:
         self.children = []  # Child nodes (not used in this game, but part of API)
         self._quit_flag = False  # Set to True to exit the game loop
         self._modal_scene = None  # Scene stack for modal presentation
+        self._keys_pressed = set()  # Currently held keys
+        self._selectables = []  # List of (name, Rect) tuples for keyboard navigation
+        self._selected_index = 0  # Currently selected region index
 
     def setup(self):
         """Called when scene is first presented"""
@@ -319,6 +322,14 @@ class Scene:
         """Called when touch ends"""
         pass
 
+    def key_down(self, key):
+        """Called when a key is pressed. Override in subclasses."""
+        pass
+
+    def key_up(self, key):
+        """Called when a key is released. Override in subclasses."""
+        pass
+
     def did_change_size(self):
         """Called when scene size changes"""
         pass
@@ -336,6 +347,68 @@ class Scene:
     def dismiss_modal_scene(self):
         """Dismiss the current modal scene"""
         self._modal_scene = None
+
+    def keys_pressed(self):
+        """
+        Returns set of currently pressed key names (e.g., {'up', 'w', 'space'})
+        Use in update() to check for held keys (e.g., for continuous movement)
+        """
+        return self._keys_pressed.copy()
+
+    def register_selectable(self, name, rect):
+        """
+        Register a clickable region for keyboard navigation
+        Arrow keys will cycle through registered selectables
+        Enter key will trigger a synthetic touch at the center of the selected region
+
+        Args:
+            name: Human-readable name for the selectable (e.g., "New Game")
+            rect: Rect object defining the clickable area in scene coordinates
+        """
+        self._selectables.append((name, rect))
+
+    def clear_selectables(self):
+        """Clear all registered selectables (call when scene changes state)"""
+        self._selectables = []
+        self._selected_index = 0
+
+    def get_selected_region(self):
+        """Returns the currently selected (name, Rect) tuple, or None if no selectables"""
+        if self._selectables and 0 <= self._selected_index < len(self._selectables):
+            return self._selectables[self._selected_index]
+        return None
+
+    def _cycle_selection(self, direction):
+        """
+        Cycle through selectables. Direction: 1 for next, -1 for previous
+        Wraps around at boundaries
+        """
+        if not self._selectables:
+            return
+        self._selected_index = (self._selected_index + direction) % len(self._selectables)
+
+    def _trigger_selected(self):
+        """
+        Trigger a synthetic touch at the center of the currently selected region
+        """
+        if not self._selectables:
+            return
+
+        selected = self.get_selected_region()
+        if selected is None:
+            return
+
+        name, rect = selected
+        # Calculate center of the selected rect
+        center_x = rect.x + rect.w / 2
+        center_y = rect.y + rect.h / 2
+
+        # Create synthetic touch at center
+        touch = Touch(center_x, center_y, touch_id=999)  # Special ID for keyboard touches
+
+        # Fire touch events
+        self.touch_began(touch)
+        self.touch_ended(touch)
 
 
 # ============================================================================
@@ -708,6 +781,47 @@ def stroke_weight(w):
     _drawing_state.stroke_weight_val = w
 
 
+# ============================================================================
+# Keyboard Input Helpers
+# ============================================================================
+
+def _get_key_name(pygame_key):
+    """
+    Convert pygame key constant to a readable string name
+
+    Args:
+        pygame_key: pygame key constant (e.g., pygame.K_UP)
+
+    Returns:
+        String key name (e.g., 'up', 'w', 'return', 'space') or None if not mapped
+    """
+    key_map = {
+        pygame.K_UP: 'up',
+        pygame.K_DOWN: 'down',
+        pygame.K_LEFT: 'left',
+        pygame.K_RIGHT: 'right',
+        pygame.K_w: 'w',
+        pygame.K_a: 'a',
+        pygame.K_s: 's',
+        pygame.K_d: 'd',
+        pygame.K_RETURN: 'return',
+        pygame.K_SPACE: 'space',
+        pygame.K_ESCAPE: 'escape',
+        pygame.K_m: 'm',
+        pygame.K_1: '1',
+        pygame.K_2: '2',
+        pygame.K_3: '3',
+        pygame.K_4: '4',
+        pygame.K_5: '5',
+        pygame.K_6: '6',
+        pygame.K_7: '7',
+        pygame.K_8: '8',
+        pygame.K_9: '9',
+        pygame.K_0: '0',
+    }
+    return key_map.get(pygame_key)
+
+
 def run(scene, orientation=LANDSCAPE, frame_interval=2):
     """
     Run the game with Pygame
@@ -758,6 +872,30 @@ def run(scene, orientation=LANDSCAPE, frame_interval=2):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            elif event.type == pygame.KEYDOWN:
+                # Map pygame key constants to readable names
+                key_name = _get_key_name(event.key)
+                if key_name:
+                    scene._keys_pressed.add(key_name)
+                    scene.key_down(key_name)
+
+                    # Handle keyboard navigation for selectables
+                    if key_name in ('up', 'w'):
+                        scene._cycle_selection(-1)
+                    elif key_name in ('down', 's'):
+                        scene._cycle_selection(1)
+                    elif key_name in ('return', 'space'):
+                        scene._trigger_selected()
+                    elif key_name == 'escape':
+                        # Escape acts as back/cancel - scenes can override key_down to handle this
+                        pass
+
+            elif event.type == pygame.KEYUP:
+                key_name = _get_key_name(event.key)
+                if key_name:
+                    scene._keys_pressed.discard(key_name)
+                    scene.key_up(key_name)
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Convert window coordinates to scene coordinates
