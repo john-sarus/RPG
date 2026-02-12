@@ -21,11 +21,12 @@ sys.path.insert(1, project_root)
 import scene
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def headless_pygame():
     """
     Fixture that sets up pygame in headless mode for testing
     Creates a 256x224 surface and assigns it to scene._surface
+    Session-scoped to avoid pygame init/quit cycles that cause segfaults
     """
     pygame.init()
 
@@ -36,6 +37,5 @@ def headless_pygame():
     # Yield the surface for tests to use
     yield surface
 
-    # Teardown: clear the surface and quit pygame
+    # Teardown: clear the surface (but don't quit pygame - causes segfaults in dummy mode)
     surface.fill((0, 0, 0))
-    pygame.quit()
