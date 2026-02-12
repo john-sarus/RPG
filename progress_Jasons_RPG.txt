@@ -268,3 +268,15 @@ ACTIVE_PRD: prd.json
 - Relevant code: BattleEngine in utils/battle_engine.py with methods calculate_physical_damage(), calculate_turn_order(), process_all_status_effects(), process_burn_spread(), check_battle_end(). Enemy IDs are snake_case ('infected_kobold_weak', 'skeleton'). Character IDs are lowercase ('javin', 'fei'). conftest.py already exists in desktop/tests/ from INT-002 - do NOT recreate it.
 - Dependencies: All CLI tools complete. Now moving to unit tests for game systems.
 ---
+## [2026-02-11 16:00] - TEST-001 - SUCCESS
+- What was implemented: Created test_battle_engine.py with 11 comprehensive pytest tests for BattleEngine. Tests cover: engine initialization (party, enemies, can_flee), turn order calculation and speed-based sorting, physical damage calculation with and without bonus multipliers, battle end detection (victory, defeat, ongoing), burn spread logic with mocked random, status effect processing, multi-enemy battles, and can_flee parameter handling. All tests use conftest.py fixtures from INT-002. Enemy IDs: 'infected_kobold_weak', 'skeleton'. Character IDs: lowercase ('javin'). Stat keys: 'attack', 'defense', 'magic_power', 'spell_resistance', 'speed'.
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_battle_engine.py (new)
+- Tests: All 11 tests pass — test_engine_init ✓, test_turn_order ✓, test_physical_damage ✓, test_physical_damage_with_bonus ✓, test_battle_end_detection_victory ✓, test_battle_end_detection_defeat ✓, test_battle_end_detection_ongoing ✓, test_burn_spread_with_mock ✓, test_process_all_status_effects ✓, test_multi_enemy_battle ✓, test_can_flee_setting ✓
+
+### Context for Next Task
+- Next task ID: TEST-002 (Unit tests for level-up and character progression)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_level_up.py (create new)
+- Relevant code: level_up_system has MODULE-LEVEL functions (not a class): calculate_exp_for_level(level), get_exp_to_next_level(current_level), add_experience(game_state, char_id, exp_gained), learn_ability(game_state, char_id, level). Character IDs are lowercase. Stat keys are full words: 'hp', 'mp', 'attack', 'defense', 'magic_power', 'spell_resistance', 'speed'. CHARACTERS[id] has 'base_stats' and 'growth_rates' dicts with same keys. Do NOT recreate conftest.py.
+- Dependencies: conftest.py exists, ready for all remaining test files. BattleEngine tests complete and passing.
+---
+
