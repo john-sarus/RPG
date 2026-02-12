@@ -259,6 +259,25 @@ class Action:
 
 
 # ============================================================================
+# Touch Input
+# ============================================================================
+
+class Touch:
+    """
+    Represents a touch or mouse input event
+    Coordinates are in scene coordinate space (bottom-left origin)
+    """
+
+    def __init__(self, x=0, y=0, touch_id=0):
+        self.location = Point(x, y)
+        self.prev_location = Point(x, y)
+        self.touch_id = touch_id
+
+    def __repr__(self):
+        return f"Touch(location={self.location}, prev_location={self.prev_location}, id={self.touch_id})"
+
+
+# ============================================================================
 # Scene Base Class (placeholder)
 # ============================================================================
 
@@ -730,11 +749,53 @@ def run(scene, orientation=LANDSCAPE, frame_interval=2):
     start_time = pygame.time.get_ticks()
     last_time = start_time
 
+    # Touch state tracking
+    current_touch = None
+    mouse_pressed = False
+
     while running and not scene._quit_flag:
         # Handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Convert window coordinates to scene coordinates
+                # Window is 1024x896, scene is 256x224 (4x scale)
+                # Also need to flip y from top-left (pygame) to bottom-left (pythonista)
+                mouse_x, mouse_y = event.pos
+                scene_x = mouse_x / (WINDOW_WIDTH / LOGICAL_WIDTH)
+                scene_y = (WINDOW_HEIGHT - mouse_y) / (WINDOW_HEIGHT / LOGICAL_HEIGHT)
+
+                current_touch = Touch(scene_x, scene_y, touch_id=0)
+                mouse_pressed = True
+                scene.touch_began(current_touch)
+
+            elif event.type == pygame.MOUSEMOTION:
+                if mouse_pressed and current_touch is not None:
+                    # Update previous location
+                    current_touch.prev_location = Point(current_touch.location.x, current_touch.location.y)
+
+                    # Convert new coordinates
+                    mouse_x, mouse_y = event.pos
+                    scene_x = mouse_x / (WINDOW_WIDTH / LOGICAL_WIDTH)
+                    scene_y = (WINDOW_HEIGHT - mouse_y) / (WINDOW_HEIGHT / LOGICAL_HEIGHT)
+
+                    current_touch.location = Point(scene_x, scene_y)
+                    scene.touch_moved(current_touch)
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if current_touch is not None:
+                    # Update final location
+                    mouse_x, mouse_y = event.pos
+                    scene_x = mouse_x / (WINDOW_WIDTH / LOGICAL_WIDTH)
+                    scene_y = (WINDOW_HEIGHT - mouse_y) / (WINDOW_HEIGHT / LOGICAL_HEIGHT)
+
+                    current_touch.location = Point(scene_x, scene_y)
+                    scene.touch_ended(current_touch)
+
+                    current_touch = None
+                    mouse_pressed = False
 
         # Update time
         current_time = pygame.time.get_ticks()
