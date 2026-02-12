@@ -280,3 +280,26 @@ ACTIVE_PRD: prd.json
 - Dependencies: conftest.py exists, ready for all remaining test files. BattleEngine tests complete and passing.
 ---
 
+
+## [2026-02-11 17:00] - TEST-002 - SUCCESS
+- What was implemented: Created test_level_up.py with 10 comprehensive pytest tests for the level-up system. Tests cover: EXP calculation (EXP_TABLE pre-calculation, exp_increases_per_level), level-up mechanics (add_experience levels up correctly), base stats (level 1 matches CHARACTERS dict), growth rate variance (physical vs magic characters differ), level cap (level 99 no overflow), stat increases on level-up (attack/defense/HP increases recorded in results), ability learning milestones (every 10 levels), EXP table consistency (pre-calculated matches formula), character EXP persistence (EXP accumulates across calls).
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_level_up.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\prd.json (marked TEST-002 as passing)
+- Tests: All 10 tests pass — test_exp_increases_per_level ✓, test_add_experience_levels_up ✓, test_level_1_base_stats ✓, test_growth_varies_by_character ✓, test_level_99_no_overflow ✓, test_exp_to_next_level_at_max ✓, test_stat_increases_on_level_up ✓, test_ability_learning_at_milestone ✓, test_exp_table_consistency ✓, test_character_exp_persists ✓
+
+### Context for Next Task
+- Next task ID: TEST-003 (Unit tests for save/load round-trip)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_save_load.py (create new)
+- Relevant code: SaveSystem is a CLASS in utils/save_system.py with __init__(self, save_directory='saves'). Instance methods: save_game(self, game_state, slot=None, save_type='manual'), load_game(self, slot=None, save_type='manual'). Save files are JSON in saves/ directory. Story flags: 'met_orisia' (not 'orisia_met'), 'flood_dead', 'recruitment_deadline_passed', 'yipp_alignment'. Character IDs are lowercase.
+- Dependencies: conftest.py already provides headless_pygame fixture for all tests. Do NOT recreate conftest.py.
+---
+## [2026-02-11 18:00] - TEST-003 - SUCCESS
+- What was implemented: Created test_save_load.py with 9 comprehensive pytest tests for save/load integrity. Includes: basic roundtrip test, party preservation, inventory preservation, story flags preservation, invalid slot handling, autosave/quicksave testing, character state preservation, location/position preservation, and GameState.import_state() reconstruction test. Created flatten_game_state() helper function to convert GameState into the flat dict format that SaveSystem.create_save_data() expects (story flags merged to top level).
+- Files changed: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_save_load.py (new), C:\Users\johnr\Documents\JasonMullan\RPG\prd.json (marked TEST-003 as passing)
+- Tests: All 9 tests pass — test_save_load_roundtrip ✓, test_party_preserved ✓, test_inventory_preserved ✓, test_story_flags_preserved ✓, test_invalid_slot_handling ✓, test_autosave_and_quicksave ✓, test_character_state_preserved ✓, test_location_and_position_preserved ✓, test_import_state_reconstructs_gamestate ✓
+
+### Context for Next Task
+- Next task ID: TEST-004 (Unit tests for game logic - recruitment, flags, endings)
+- Key files to modify: C:\Users\johnr\Documents\JasonMullan\RPG\desktop\tests\test_game_logic.py (create new)
+- Relevant code: RecruitmentSystem in utils/recruitment_system.py has is_character_recruitable(char_id) method. StoryEventSystem in utils/story_event_system.py has trigger methods. Story flags: 'recruitment_deadline_passed', 'met_orisia', 'flood_dead', 'yipp_alignment'. Character IDs are lowercase.
+- Dependencies: conftest.py provides headless_pygame fixture and sys.path setup. SaveSystem uses flat dict format where story flags are top-level keys, not nested under 'story_flags'.
+---
